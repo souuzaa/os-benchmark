@@ -32,12 +32,13 @@ mkdir -p "${RESULTS_DIR}"
 if [[ ! -x "${WRK2}" ]]; then
   echo "[*] Building wrk2..."
   if command -v apt-get &>/dev/null; then
-    sudo apt-get install -y gcc make git libssl-dev
+    sudo apt-get install -y gcc make git libssl-dev zlib1g-dev
   elif command -v yum &>/dev/null; then
     sudo yum install -y gcc make git openssl-devel
   elif command -v pkg &>/dev/null; then
     sudo pkg install -y gcc gmake git openssl
   fi
+  rm -rf wrk2-src
   git clone https://github.com/giltene/wrk2.git wrk2-src && cd wrk2-src
   if command -v gmake &>/dev/null; then gmake; else make; fi
   cd ..

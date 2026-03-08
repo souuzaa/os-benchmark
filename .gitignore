@@ -1,0 +1,6 @@
+# Compiled binaries
+/api
+
+# wrk2 build artifacts
+wrk2-src/
+wrk2/
