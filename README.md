@@ -2,7 +2,30 @@
 
 HTTP server for benchmarking OS-level performance differences between Linux and FreeBSD. Each endpoint isolates a specific kernel/runtime subsystem so results are directly comparable across operating systems.
 
-## Build & Run
+## Architecture
+
+Three machines (e.g., AWS c6i instances):
+
+- **Linux server** — runs the Go API on Amazon Linux 2023
+- **FreeBSD server** — runs the Go API on FreeBSD 14.1
+- **Load generator** — runs wrk2 against both servers
+
+## Quick start
+
+### 1. Provision machines
+
+```bash
+# On the Linux server
+sudo ./scripts/setup-linux.sh
+
+# On the FreeBSD server
+sudo ./scripts/setup-freebsd.sh
+
+# On the load generator
+sudo ./scripts/setup-loadgen.sh
+```
+
+### 2. Start the API server (on both Linux and FreeBSD)
 
 ```bash
 go build -o api main.go
@@ -10,6 +33,21 @@ GOMAXPROCS=4 ./api
 ```
 
 Server starts on `:3000`.
+
+### 3. Run benchmarks (from load generator or locally)
+
+```bash
+# Benchmark Linux
+./scripts/bench.sh <linux-ip> linux
+
+# Benchmark FreeBSD
+./scripts/bench.sh <freebsd-ip> freebsd
+
+# Compare results
+./scripts/compare.sh
+```
+
+The bench script handles wrk2 installation, warmup, and runs all endpoints across three concurrency profiles (low/mid/high). Results are saved to `results/<os>/`.
 
 ## Endpoints
 
@@ -25,62 +63,7 @@ Server starts on `:3000`.
 | `/mem` | Allocate 100x 1MiB slices + GC | mmap/brk, memory reclamation |
 | `/syscall` | 1000x getpid + getwd calls | Raw syscall transition overhead |
 
-## Benchmarking with wrk2
-
-```bash
-# On the Linux machine
-./scripts/bench.sh 192.168.1.10 linux
-
-# On the FreeBSD machine
-./scripts/bench.sh 192.168.1.20 freebsd
-
-# Compare results
-./scripts/compare.sh
-```
-
-The script handles wrk2 installation, warmup, and runs all endpoints across three concurrency profiles (low/mid/high). Results are saved to `results/<os>/`.
-
-### Manual wrk2 commands
-
-If you prefer running wrk2 manually instead of using the script:
-
-```bash
-# Install wrk2
-git clone https://github.com/giltene/wrk2.git && cd wrk2 && make
-# On FreeBSD, use: pkg install gcc gmake git openssl && gmake
-
-# Warmup (run before measurements)
-./wrk2-t4 -c100 -d30s -R1000 http://<server-ip>:3000/compute
-
-# Low concurrency
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/compute
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/cached
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/db
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/fileio
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/concurrent
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/mem
-./wrk2-t4 -c50  -d60s -R2000  --latency http://<server-ip>:3000/syscall
-
-# Mid concurrency
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/compute
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/cached
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/db
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/fileio
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/concurrent
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/mem
-./wrk2-t8 -c200 -d60s -R5000  --latency http://<server-ip>:3000/syscall
-
-# High concurrency
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/compute
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/cached
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/db
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/fileio
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/concurrent
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/mem
-./wrk2-t8 -c500 -d60s -R10000 --latency http://<server-ip>:3000/syscall
-```
-
-### Concurrency profiles
+## Concurrency profiles
 
 | Profile | Threads | Connections | Target rate |
 |---------|---------|-------------|-------------|
@@ -88,15 +71,25 @@ git clone https://github.com/giltene/wrk2.git && cd wrk2 && make
 | mid | 8 | 200 | 5,000 req/s |
 | high | 8 | 500 | 10,000 req/s |
 
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/setup-linux.sh` | Installs Go, PostgreSQL, kernel tuning on Amazon Linux 2023 |
+| `scripts/setup-freebsd.sh` | Installs Go, PostgreSQL, sysctl tuning on FreeBSD 14.1 |
+| `scripts/setup-loadgen.sh` | Installs wrk2, kernel tuning for high connection counts |
+| `scripts/bench.sh` | Runs wrk2 benchmarks across all endpoints and profiles |
+| `scripts/compare.sh` | Side-by-side comparison of Linux vs FreeBSD results |
+
 ## Project structure
 
 ```
 main.go                    — benchmark server (all endpoints)
 scripts/
-  bench.sh                 — wrk2 test runner script
-  compare.sh               — compare Linux vs FreeBSD results
   setup-linux.sh           — Linux API server setup (Amazon Linux 2023)
   setup-freebsd.sh         — FreeBSD API server setup (FreeBSD 14.1)
   setup-loadgen.sh         — load generator machine setup
+  bench.sh                 — wrk2 test runner script
+  compare.sh               — compare Linux vs FreeBSD results
 results/                   — benchmark output (created by bench.sh)
 ```
