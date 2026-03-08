@@ -75,8 +75,8 @@ The bench script handles wrk2 installation, warmup, and runs all endpoints acros
 
 | Script | Description |
 |--------|-------------|
-| `scripts/setup-linux.sh` | Installs Go, PostgreSQL, kernel tuning on Ubuntu 24.04 LTS |
-| `scripts/setup-freebsd.sh` | Installs Go, PostgreSQL, sysctl tuning on FreeBSD 14.1 |
+| `scripts/setup-linux.sh` | Installs Go, kernel tuning on Ubuntu 24.04 LTS |
+| `scripts/setup-freebsd.sh` | Installs Go, sysctl tuning on FreeBSD 14.1 |
 | `scripts/setup-loadgen.sh` | Installs wrk2, kernel tuning for high connection counts |
 | `scripts/bench.sh` | Runs wrk2 benchmarks across all endpoints and profiles |
 | `scripts/compare.sh` | Side-by-side comparison of Linux vs FreeBSD results |

@@ -17,7 +17,7 @@ echo "============================================="
 # -----------------------------------------------------------------------------
 # 1. Bootstrap pkg and update
 # -----------------------------------------------------------------------------
-echo "[1/7] Bootstrapping pkg and updating..."
+echo "[1/6] Bootstrapping pkg and updating..."
 env ASSUME_ALWAYS_YES=YES pkg bootstrap -f
 pkg update -q
 pkg upgrade -y -q
@@ -25,13 +25,13 @@ pkg upgrade -y -q
 # -----------------------------------------------------------------------------
 # 2. Base dependencies
 # -----------------------------------------------------------------------------
-echo "[2/7] Installing base dependencies..."
-pkg install -y git go postgresql16-server postgresql16-client bash curl wget
+echo "[2/6] Installing base dependencies..."
+pkg install -y git go bash curl wget
 
 # -----------------------------------------------------------------------------
 # 3. Go verification
 # -----------------------------------------------------------------------------
-echo "[3/7] Verifying Go installation..."
+echo "[3/6] Verifying Go installation..."
 go version
 echo "GOPATH will be set to ${INSTALL_DIR}/go"
 
@@ -47,38 +47,9 @@ cat >> /etc/rc.conf << 'EOF'
 EOF
 
 # -----------------------------------------------------------------------------
-# 4. PostgreSQL setup
+# 4. Kernel / sysctl tuning
 # -----------------------------------------------------------------------------
-echo "[4/7] Setting up PostgreSQL..."
-
-# Enable and initialize PostgreSQL
-sysrc postgresql_enable="YES"
-/usr/local/etc/rc.d/postgresql initdb
-service postgresql start
-
-# Wait for PG to be ready
-sleep 3
-
-# Create benchmark database and user
-sudo -u postgres psql << 'EOF'
-CREATE USER benchmark WITH PASSWORD 'benchmark';
-CREATE DATABASE benchmark OWNER benchmark;
-\c benchmark
-CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100));
-INSERT INTO users (name) SELECT 'user_' || generate_series(1, 1000);
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO benchmark;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO benchmark;
-EOF
-
-# Allow password auth for local connections
-PG_HBA="/var/db/postgres/data16/pg_hba.conf"
-sed -i '' 's/local   all             all                                     trust/local   all             all                                     md5/' "$PG_HBA"
-service postgresql restart
-
-# -----------------------------------------------------------------------------
-# 5. Kernel / sysctl tuning
-# -----------------------------------------------------------------------------
-echo "[5/7] Tuning sysctl parameters..."
+echo "[4/6] Tuning sysctl parameters..."
 cat >> /etc/sysctl.conf << 'EOF'
 kern.ipc.somaxconn=65535
 kern.maxfiles=200000
@@ -107,9 +78,9 @@ service powerd stop 2>/dev/null || true
 sysctl dev.cpu.0.freq_levels 2>/dev/null | awk -F'/' '{print $1}' | awk '{print $NF}' | xargs -I{} sysctl dev.cpu.0.freq={} 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
-# 6. Clone repository
+# 5. Clone repository
 # -----------------------------------------------------------------------------
-echo "[6/7] Cloning repository..."
+echo "[5/6] Cloning repository..."
 su -m ec2-user -c "
   cd ${INSTALL_DIR}
   git clone ${REPO_URL} os-benchmark
@@ -121,9 +92,9 @@ su -m ec2-user -c "
 "
 
 # -----------------------------------------------------------------------------
-# 7. kqueue verification
+# 6. kqueue verification
 # -----------------------------------------------------------------------------
-echo "[7/7] Verifying kqueue support..."
+echo "[6/6] Verifying kqueue support..."
 if kldstat | grep -q "kqueue"; then
   echo "kqueue: LOADED as module"
 else
@@ -134,7 +105,6 @@ echo ""
 echo "============================================="
 echo " Setup complete!"
 echo " Repo:     ${INSTALL_DIR}/os-benchmark"
-echo " DB:       postgresql://benchmark:benchmark@localhost/benchmark"
 echo " Go:       $(go version)"
 echo " Kernel:   $(uname -r)"
 echo " kqueue:   native async I/O"

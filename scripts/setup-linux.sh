@@ -19,21 +19,21 @@ echo "============================================="
 # -----------------------------------------------------------------------------
 # 1. System update
 # -----------------------------------------------------------------------------
-echo "[1/7] Updating system packages..."
+echo "[1/6] Updating system packages..."
 apt-get update -qq
 apt-get upgrade -y -qq
 
 # -----------------------------------------------------------------------------
 # 2. Base dependencies
 # -----------------------------------------------------------------------------
-echo "[2/7] Installing base dependencies..."
-apt-get install -y -qq git wget curl gcc make tar postgresql postgresql-contrib linux-tools-common linux-tools-$(uname -r) 2>/dev/null || \
-  apt-get install -y -qq git wget curl gcc make tar postgresql postgresql-contrib linux-tools-common
+echo "[2/6] Installing base dependencies..."
+apt-get install -y -qq git wget curl gcc make tar linux-tools-common linux-tools-$(uname -r) 2>/dev/null || \
+  apt-get install -y -qq git wget curl gcc make tar linux-tools-common
 
 # -----------------------------------------------------------------------------
 # 3. Go installation
 # -----------------------------------------------------------------------------
-echo "[3/7] Installing Go ${GO_VERSION}..."
+echo "[3/6] Installing Go ${GO_VERSION}..."
 wget -q "${GO_URL}" -O "/tmp/${GO_TARBALL}"
 rm -rf /usr/local/go
 tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
@@ -50,32 +50,9 @@ export PATH=$PATH:/usr/local/go/bin
 echo "Go version: $(go version)"
 
 # -----------------------------------------------------------------------------
-# 4. PostgreSQL setup
+# 4. Kernel tuning
 # -----------------------------------------------------------------------------
-echo "[4/7] Setting up PostgreSQL..."
-systemctl enable postgresql
-systemctl start postgresql
-
-# Create benchmark database and user
-sudo -u postgres psql << 'EOF'
-CREATE USER benchmark WITH PASSWORD 'benchmark';
-CREATE DATABASE benchmark OWNER benchmark;
-\c benchmark
-CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100));
-INSERT INTO users (name) SELECT 'user_' || generate_series(1, 1000);
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO benchmark;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO benchmark;
-EOF
-
-# Allow password auth for local connections
-PG_HBA=$(sudo -u postgres psql -t -c "SHOW hba_file;" | xargs)
-sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' "$PG_HBA"
-systemctl restart postgresql
-
-# -----------------------------------------------------------------------------
-# 5. Kernel tuning
-# -----------------------------------------------------------------------------
-echo "[5/7] Tuning kernel parameters..."
+echo "[4/6] Tuning kernel parameters..."
 cat > /etc/sysctl.d/99-benchmark.conf << 'EOF'
 net.core.somaxconn=65535
 net.ipv4.tcp_tw_reuse=1
@@ -96,9 +73,9 @@ ubuntu hard nofile 100000
 EOF
 
 # -----------------------------------------------------------------------------
-# 6. Clone repository
+# 5. Clone repository
 # -----------------------------------------------------------------------------
-echo "[6/7] Cloning repository..."
+echo "[5/6] Cloning repository..."
 sudo -u ubuntu bash << EOF
 cd ${INSTALL_DIR}
 git clone ${REPO_URL} os-benchmark
@@ -110,9 +87,9 @@ echo "Repo cloned and dependencies downloaded."
 EOF
 
 # -----------------------------------------------------------------------------
-# 7. Verify io_uring support
+# 6. Verify io_uring support
 # -----------------------------------------------------------------------------
-echo "[7/7] Verifying io_uring support..."
+echo "[6/6] Verifying io_uring support..."
 if grep -qs "CONFIG_IO_URING=y" /boot/config-$(uname -r) 2>/dev/null; then
   echo "io_uring: ENABLED"
 elif zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_IO_URING=y"; then
@@ -125,7 +102,6 @@ echo ""
 echo "============================================="
 echo " Setup complete!"
 echo " Repo:     ${INSTALL_DIR}/os-benchmark"
-echo " DB:       postgresql://benchmark:benchmark@localhost/benchmark"
 echo " Go:       $(go version)"
 echo " Kernel:   $(uname -r)"
 echo "============================================="
