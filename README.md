@@ -29,10 +29,13 @@ Server starts on `:3000`.
 
 ```bash
 # On the Linux machine
-./bench.sh 192.168.1.10 linux
+./scripts/bench.sh 192.168.1.10 linux
 
 # On the FreeBSD machine
-./bench.sh 192.168.1.20 freebsd
+./scripts/bench.sh 192.168.1.20 freebsd
+
+# Compare results
+./scripts/compare.sh
 ```
 
 The script handles wrk2 installation, warmup, and runs all endpoints across three concurrency profiles (low/mid/high). Results are saved to `results/<os>/`.
@@ -88,7 +91,12 @@ git clone https://github.com/giltene/wrk2.git && cd wrk2 && make
 ## Project structure
 
 ```
-main.go     — benchmark server (all endpoints)
-bench.sh    — wrk2 test runner script
-results/    — benchmark output (created by bench.sh)
+main.go                    — benchmark server (all endpoints)
+scripts/
+  bench.sh                 — wrk2 test runner script
+  compare.sh               — compare Linux vs FreeBSD results
+  setup-linux.sh           — Linux API server setup (Amazon Linux 2023)
+  setup-freebsd.sh         — FreeBSD API server setup (FreeBSD 14.1)
+  setup-loadgen.sh         — load generator machine setup
+results/                   — benchmark output (created by bench.sh)
 ```

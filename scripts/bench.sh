@@ -8,11 +8,13 @@ set -euo pipefail
 #          ./bench.sh 192.168.1.20 freebsd
 # =============================================================================
 
-SERVER_IP="${1:?Usage: ./bench.sh <server-ip> <os-name>}"
-OS_NAME="${2:?Usage: ./bench.sh <server-ip> <os-name>}"
+SERVER_IP="${1:?Usage: ./scripts/bench.sh <server-ip> <os-name>}"
+OS_NAME="${2:?Usage: ./scripts/bench.sh <server-ip> <os-name>}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BASE_URL="http://${SERVER_IP}:3000"
-WRK2="./wrk2/wrk"
-RESULTS_DIR="results/${OS_NAME}"
+WRK2="${PROJECT_DIR}/wrk2/wrk"
+RESULTS_DIR="${PROJECT_DIR}/results/${OS_NAME}"
 DURATION="60s"
 WARMUP_DURATION="30s"
 
@@ -38,11 +40,11 @@ if [[ ! -x "${WRK2}" ]]; then
   elif command -v pkg &>/dev/null; then
     sudo pkg install -y gcc gmake git openssl
   fi
-  rm -rf wrk2-src
-  git clone https://github.com/giltene/wrk2.git wrk2-src && cd wrk2-src
+  rm -rf "${PROJECT_DIR}/wrk2-src"
+  git clone https://github.com/giltene/wrk2.git "${PROJECT_DIR}/wrk2-src" && cd "${PROJECT_DIR}/wrk2-src"
   if command -v gmake &>/dev/null; then gmake; else make; fi
-  cd ..
-  mkdir -p wrk2 && cp wrk2-src/wrk "${WRK2}"
+  cd "${PROJECT_DIR}"
+  mkdir -p "${PROJECT_DIR}/wrk2" && cp "${PROJECT_DIR}/wrk2-src/wrk" "${WRK2}"
   echo "[*] wrk2 built successfully"
 fi
 

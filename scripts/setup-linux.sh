@@ -1,0 +1,128 @@
+#!/bin/bash
+# =============================================================================
+# setup-linux.sh — Linux API Server (c6i.xlarge / Amazon Linux 2023)
+# Usage: chmod +x setup-linux.sh && sudo ./setup-linux.sh
+# =============================================================================
+
+set -euo pipefail
+
+REPO_URL="https://github.com/souuzaa/os-benchmark"
+GO_VERSION="1.22.3"
+GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
+GO_URL="https://go.dev/dl/${GO_TARBALL}"
+INSTALL_DIR="/home/ec2-user"
+
+echo "============================================="
+echo " OS Benchmark — Linux API Server Setup"
+echo "============================================="
+
+# -----------------------------------------------------------------------------
+# 1. System update
+# -----------------------------------------------------------------------------
+echo "[1/7] Updating system packages..."
+dnf update -y --quiet
+
+# -----------------------------------------------------------------------------
+# 2. Base dependencies
+# -----------------------------------------------------------------------------
+echo "[2/7] Installing base dependencies..."
+dnf install -y git wget curl gcc make tar postgresql15-server postgresql15 cpupower --quiet
+
+# -----------------------------------------------------------------------------
+# 3. Go installation
+# -----------------------------------------------------------------------------
+echo "[3/7] Installing Go ${GO_VERSION}..."
+wget -q "${GO_URL}" -O "/tmp/${GO_TARBALL}"
+rm -rf /usr/local/go
+tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
+rm "/tmp/${GO_TARBALL}"
+
+# Add Go to PATH system-wide
+cat > /etc/profile.d/go.sh << 'EOF'
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=$HOME/go
+export PATH=$PATH:$GOPATH/bin
+EOF
+
+export PATH=$PATH:/usr/local/go/bin
+echo "Go version: $(go version)"
+
+# -----------------------------------------------------------------------------
+# 4. PostgreSQL setup
+# -----------------------------------------------------------------------------
+echo "[4/7] Setting up PostgreSQL..."
+postgresql-setup --initdb
+systemctl enable postgresql
+systemctl start postgresql
+
+# Create benchmark database and user
+sudo -u postgres psql << 'EOF'
+CREATE USER benchmark WITH PASSWORD 'benchmark';
+CREATE DATABASE benchmark OWNER benchmark;
+\c benchmark
+CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100));
+INSERT INTO users (name) SELECT 'user_' || generate_series(1, 1000);
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO benchmark;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO benchmark;
+EOF
+
+# Allow local connections
+PG_HBA=$(sudo -u postgres psql -t -c "SHOW hba_file;" | xargs)
+sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' "$PG_HBA"
+systemctl restart postgresql
+
+# -----------------------------------------------------------------------------
+# 5. Kernel tuning
+# -----------------------------------------------------------------------------
+echo "[5/7] Tuning kernel parameters..."
+cat > /etc/sysctl.d/99-benchmark.conf << 'EOF'
+net.core.somaxconn=65535
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.tcp_fin_timeout=15
+net.core.netdev_max_backlog=65535
+net.ipv4.tcp_max_syn_backlog=65535
+vm.swappiness=1
+EOF
+sysctl --system --quiet
+
+# CPU performance mode
+cpupower frequency-set -g performance 2>/dev/null || echo "Warning: cpupower not available, skipping"
+
+# Increase open file limits
+cat >> /etc/security/limits.conf << 'EOF'
+ec2-user soft nofile 100000
+ec2-user hard nofile 100000
+EOF
+
+# -----------------------------------------------------------------------------
+# 6. Clone repository
+# -----------------------------------------------------------------------------
+echo "[6/7] Cloning repository..."
+sudo -u ec2-user bash << EOF
+cd ${INSTALL_DIR}
+git clone ${REPO_URL} os-benchmark
+cd os-benchmark
+export PATH=\$PATH:/usr/local/go/bin
+go mod tidy 2>/dev/null || true
+go build ./... 2>/dev/null || true
+echo "Repo cloned and dependencies downloaded."
+EOF
+
+# -----------------------------------------------------------------------------
+# 7. Verify io_uring support
+# -----------------------------------------------------------------------------
+echo "[7/7] Verifying io_uring support..."
+if zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_IO_URING=y"; then
+  echo "io_uring: ENABLED"
+else
+  uname -r | grep -qE '^(5\.[1-9]|6\.)' && echo "io_uring: likely available (kernel $(uname -r))" || echo "io_uring: not confirmed — kernel $(uname -r)"
+fi
+
+echo ""
+echo "============================================="
+echo " Setup complete!"
+echo " Repo:     ${INSTALL_DIR}/os-benchmark"
+echo " DB:       postgresql://benchmark:benchmark@localhost/benchmark"
+echo " Go:       $(go version)"
+echo " Kernel:   $(uname -r)"
+echo "============================================="
