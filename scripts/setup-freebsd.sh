@@ -87,8 +87,8 @@ su -m ec2-user -c "
   cd os-benchmark
   export GOPATH=\${HOME}/go
   go mod tidy 2>/dev/null || true
-  go build ./... 2>/dev/null || true
-  echo 'Repo cloned and dependencies downloaded.'
+  go build -o api main.go
+  echo 'Repo cloned and API binary built.'
 "
 
 # -----------------------------------------------------------------------------

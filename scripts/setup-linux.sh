@@ -82,8 +82,8 @@ git clone ${REPO_URL} os-benchmark
 cd os-benchmark
 export PATH=\$PATH:/usr/local/go/bin
 go mod tidy 2>/dev/null || true
-go build ./... 2>/dev/null || true
-echo "Repo cloned and dependencies downloaded."
+go build -o api main.go
+echo "Repo cloned and API binary built."
 EOF
 
 # -----------------------------------------------------------------------------
