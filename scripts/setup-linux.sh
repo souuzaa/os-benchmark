@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# setup-linux.sh — Linux API Server (c6i.xlarge / Amazon Linux 2023)
+# setup-linux.sh — Linux API Server (c6i.xlarge / Ubuntu 24.04 LTS)
 # Usage: chmod +x setup-linux.sh && sudo ./setup-linux.sh
 # =============================================================================
 
@@ -10,7 +10,7 @@ REPO_URL="https://github.com/souuzaa/os-benchmark"
 GO_VERSION="1.22.3"
 GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
 GO_URL="https://go.dev/dl/${GO_TARBALL}"
-INSTALL_DIR="/home/ec2-user"
+INSTALL_DIR="/home/ubuntu"
 
 echo "============================================="
 echo " OS Benchmark — Linux API Server Setup"
@@ -20,13 +20,15 @@ echo "============================================="
 # 1. System update
 # -----------------------------------------------------------------------------
 echo "[1/7] Updating system packages..."
-dnf update -y --quiet
+apt-get update -qq
+apt-get upgrade -y -qq
 
 # -----------------------------------------------------------------------------
 # 2. Base dependencies
 # -----------------------------------------------------------------------------
 echo "[2/7] Installing base dependencies..."
-dnf install -y git wget curl gcc make tar postgresql15-server postgresql15 cpupower --quiet
+apt-get install -y -qq git wget curl gcc make tar postgresql postgresql-contrib linux-tools-common linux-tools-$(uname -r) 2>/dev/null || \
+  apt-get install -y -qq git wget curl gcc make tar postgresql postgresql-contrib linux-tools-common
 
 # -----------------------------------------------------------------------------
 # 3. Go installation
@@ -51,7 +53,6 @@ echo "Go version: $(go version)"
 # 4. PostgreSQL setup
 # -----------------------------------------------------------------------------
 echo "[4/7] Setting up PostgreSQL..."
-postgresql-setup --initdb
 systemctl enable postgresql
 systemctl start postgresql
 
@@ -66,7 +67,7 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO benchmark;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO benchmark;
 EOF
 
-# Allow local connections
+# Allow password auth for local connections
 PG_HBA=$(sudo -u postgres psql -t -c "SHOW hba_file;" | xargs)
 sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' "$PG_HBA"
 systemctl restart postgresql
@@ -90,15 +91,15 @@ cpupower frequency-set -g performance 2>/dev/null || echo "Warning: cpupower not
 
 # Increase open file limits
 cat >> /etc/security/limits.conf << 'EOF'
-ec2-user soft nofile 100000
-ec2-user hard nofile 100000
+ubuntu soft nofile 100000
+ubuntu hard nofile 100000
 EOF
 
 # -----------------------------------------------------------------------------
 # 6. Clone repository
 # -----------------------------------------------------------------------------
 echo "[6/7] Cloning repository..."
-sudo -u ec2-user bash << EOF
+sudo -u ubuntu bash << EOF
 cd ${INSTALL_DIR}
 git clone ${REPO_URL} os-benchmark
 cd os-benchmark
@@ -112,7 +113,9 @@ EOF
 # 7. Verify io_uring support
 # -----------------------------------------------------------------------------
 echo "[7/7] Verifying io_uring support..."
-if zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_IO_URING=y"; then
+if grep -qs "CONFIG_IO_URING=y" /boot/config-$(uname -r) 2>/dev/null; then
+  echo "io_uring: ENABLED"
+elif zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_IO_URING=y"; then
   echo "io_uring: ENABLED"
 else
   uname -r | grep -qE '^(5\.[1-9]|6\.)' && echo "io_uring: likely available (kernel $(uname -r))" || echo "io_uring: not confirmed — kernel $(uname -r)"

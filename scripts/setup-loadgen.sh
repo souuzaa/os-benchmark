@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# setup-loadgen.sh — Load Generator (c6i.2xlarge / Amazon Linux 2023)
+# setup-loadgen.sh — Load Generator (c6i.2xlarge / Ubuntu 24.04 LTS)
 # Usage: chmod +x setup-loadgen.sh && sudo ./setup-loadgen.sh
 # =============================================================================
 
@@ -10,7 +10,7 @@ REPO_URL="https://github.com/souuzaa/os-benchmark"
 GO_VERSION="1.22.3"
 GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
 GO_URL="https://go.dev/dl/${GO_TARBALL}"
-INSTALL_DIR="/home/ec2-user"
+INSTALL_DIR="/home/ubuntu"
 
 echo "============================================="
 echo " OS Benchmark — Load Generator Setup"
@@ -20,13 +20,14 @@ echo "============================================="
 # 1. System update
 # -----------------------------------------------------------------------------
 echo "[1/6] Updating system packages..."
-dnf update -y --quiet
+apt-get update -qq
+apt-get upgrade -y -qq
 
 # -----------------------------------------------------------------------------
 # 2. Base dependencies
 # -----------------------------------------------------------------------------
 echo "[2/6] Installing base dependencies..."
-dnf install -y git wget curl gcc make openssl-devel luarocks --quiet
+apt-get install -y -qq git wget curl gcc make libssl-dev zlib1g-dev luarocks
 
 # -----------------------------------------------------------------------------
 # 3. Go installation (for running any Go benchmark helpers)
@@ -75,17 +76,17 @@ net.core.somaxconn=65535
 EOF
 sysctl --system --quiet
 
-# Open file limits for ec2-user
+# Open file limits for ubuntu
 cat >> /etc/security/limits.conf << 'EOF'
-ec2-user soft nofile 100000
-ec2-user hard nofile 100000
+ubuntu soft nofile 100000
+ubuntu hard nofile 100000
 EOF
 
 # -----------------------------------------------------------------------------
 # 6. Clone repository + create run scripts
 # -----------------------------------------------------------------------------
 echo "[6/6] Cloning repository and creating run scripts..."
-sudo -u ec2-user bash << EOF
+sudo -u ubuntu bash << EOF
 cd ${INSTALL_DIR}
 git clone ${REPO_URL} os-benchmark
 cd os-benchmark
@@ -182,7 +183,7 @@ echo "Raw results saved to: ${RESULTS_DIR}"
 RUNNER
 
 chmod +x ${INSTALL_DIR}/run-benchmark.sh
-chown ec2-user:ec2-user ${INSTALL_DIR}/run-benchmark.sh
+chown ubuntu:ubuntu ${INSTALL_DIR}/run-benchmark.sh
 
 echo ""
 echo "============================================="

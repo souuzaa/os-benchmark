@@ -6,7 +6,7 @@ HTTP server for benchmarking OS-level performance differences between Linux and 
 
 Three machines (e.g., AWS c6i instances):
 
-- **Linux server** — runs the Go API on Amazon Linux 2023
+- **Linux server** — runs the Go API on Ubuntu 24.04 LTS
 - **FreeBSD server** — runs the Go API on FreeBSD 14.1
 - **Load generator** — runs wrk2 against both servers
 
@@ -75,7 +75,7 @@ The bench script handles wrk2 installation, warmup, and runs all endpoints acros
 
 | Script | Description |
 |--------|-------------|
-| `scripts/setup-linux.sh` | Installs Go, PostgreSQL, kernel tuning on Amazon Linux 2023 |
+| `scripts/setup-linux.sh` | Installs Go, PostgreSQL, kernel tuning on Ubuntu 24.04 LTS |
 | `scripts/setup-freebsd.sh` | Installs Go, PostgreSQL, sysctl tuning on FreeBSD 14.1 |
 | `scripts/setup-loadgen.sh` | Installs wrk2, kernel tuning for high connection counts |
 | `scripts/bench.sh` | Runs wrk2 benchmarks across all endpoints and profiles |
@@ -86,7 +86,7 @@ The bench script handles wrk2 installation, warmup, and runs all endpoints acros
 ```
 main.go                    — benchmark server (all endpoints)
 scripts/
-  setup-linux.sh           — Linux API server setup (Amazon Linux 2023)
+  setup-linux.sh           — Linux API server setup (Ubuntu 24.04 LTS)
   setup-freebsd.sh         — FreeBSD API server setup (FreeBSD 14.1)
   setup-loadgen.sh         — load generator machine setup
   bench.sh                 — wrk2 test runner script
